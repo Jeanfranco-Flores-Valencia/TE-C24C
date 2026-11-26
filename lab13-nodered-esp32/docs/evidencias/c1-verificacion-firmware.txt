@@ -1,0 +1,29 @@
+$ ./run.sh   (firmware real compilado en el PC + firmas de Node.js)
+
+
+Tanda 1 (ESP32 recién iniciado)
+  ON en texto plano (formato Parte A)        -> COMANDO_RECHAZADO:SIN_FIRMA
+  Comando firmado válido ON (seq 1000)       -> COMANDO_ACEPTADO:ON:1000
+  Repetición del mismo comando               -> COMANDO_RECHAZADO:REPETIDO:1000
+  Firma falsa                                -> COMANDO_RECHAZADO:FIRMA_INVALIDA
+  Firma de ON reutilizada para OFF           -> COMANDO_RECHAZADO:FIRMA_INVALIDA
+  Estado final                               -> LED=1
+  Telemetría publicada: {"dispositivo":"floresvalencia","temperatura":26.5,"humedad":61.2,"led":"ON","secuencia":2,"arranque":"1a2b3c4d","uptime":0}
+
+Tanda 2 (ESP32 recién iniciado)
+  Comando firmado válido ON (seq 1000)       -> COMANDO_ACEPTADO:ON:1000
+  Firmado, pero con secuencia antigua (500)  -> COMANDO_RECHAZADO:REPETIDO:500
+  Comando firmado válido OFF (seq 1001)      -> COMANDO_ACEPTADO:OFF:1001
+  Estado final                               -> LED=0
+
+Tanda 3 (ESP32 recién iniciado)
+  Ráfaga: comando válido 1 de 7              -> COMANDO_ACEPTADO:ON:5000
+  Ráfaga: comando válido 2 de 7              -> COMANDO_ACEPTADO:OFF:5001
+  Ráfaga: comando válido 3 de 7              -> COMANDO_ACEPTADO:ON:5002
+  Ráfaga: comando válido 4 de 7              -> COMANDO_ACEPTADO:OFF:5003
+  Ráfaga: comando válido 5 de 7              -> COMANDO_ACEPTADO:ON:5004
+  Ráfaga: comando válido 6 de 7              -> COMANDO_RECHAZADO:FRECUENCIA
+  Ráfaga: comando válido 7 de 7              -> COMANDO_RECHAZADO:FRECUENCIA
+  Estado final                               -> LED=1
+
+Autoprueba HMAC del firmware: OK

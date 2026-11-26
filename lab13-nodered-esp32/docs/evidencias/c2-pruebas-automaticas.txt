@@ -1,0 +1,15 @@
+$ npm test
+
+ok 1 - el flow de la Parte A usa los topics de lab13 (la guía traía lab09)
+ok 2 - acepta telemetría válida
+ok 3 - rechaza telemetría anómala, inválida o de otro dispositivo
+ok 4 - detecta telemetría repetida y distingue un reinicio legítimo
+ok 5 - limita la frecuencia de mensajes (abuso)
+ok 6 - firma comandos que el ESP32 acepta y con secuencia creciente
+ok 7 - sin clave no firma nada
+ok 8 - una firma no sirve para otra acción ni para otra clave
+ok 9 - vector compartido con la autoprueba del firmware
+ok 10 - la tabla de auditoría guarda los últimos 30 eventos y cuenta rechazos
+# tests 10
+# pass 10
+# fail 0

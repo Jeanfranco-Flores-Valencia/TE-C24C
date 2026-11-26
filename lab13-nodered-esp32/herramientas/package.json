@@ -1,0 +1,13 @@
+{
+  "name": "lab13-herramientas",
+  "private": true,
+  "description": "Simulador del ESP32, ataques de prueba y pruebas automáticas del Laboratorio 13",
+  "scripts": {
+    "simulador": "node simulador-esp32.js",
+    "observar": "node observar.js",
+    "ataques": "node ataques.js",
+    "test": "node --test pruebas.test.js"
+  },
+  "dependencies": { "mqtt": "^5.10.0" },
+  "devDependencies": { "aedes": "0.51.3" }
+}

@@ -1,0 +1,17 @@
+Conectado a mqtt://127.0.0.1:18832
+Suscrito a tecsup/ii3010/lab13/floresvalencia/#
+
+18:21:36  telemetria  {"dispositivo":"floresvalencia","temperatura":24.5,"humedad":55.9,"led":"OFF","secuencia":2,"uptime":5127}
+18:21:41  telemetria  {"dispositivo":"floresvalencia","temperatura":24.6,"humedad":56.3,"led":"OFF","secuencia":3,"uptime":10129}
+18:21:46  telemetria  {"dispositivo":"floresvalencia","temperatura":24.7,"humedad":56.6,"led":"OFF","secuencia":4,"uptime":15134}
+18:21:51  telemetria  {"dispositivo":"floresvalencia","temperatura":24.9,"humedad":56.6,"led":"OFF","secuencia":5,"uptime":20140}
+18:21:56  telemetria  {"dispositivo":"floresvalencia","temperatura":24.7,"humedad":56.3,"led":"OFF","secuencia":6,"uptime":25145}
+18:22:01  telemetria  {"dispositivo":"floresvalencia","temperatura":24.5,"humedad":56.4,"led":"OFF","secuencia":7,"uptime":30146}
+18:22:06  telemetria  {"dispositivo":"floresvalencia","temperatura":24.7,"humedad":56.4,"led":"OFF","secuencia":8,"uptime":35148}
+18:22:06  comando     ON
+18:22:06  auditoria   COMANDO_ACEPTADO:ON
+18:22:11  telemetria  {"dispositivo":"floresvalencia","temperatura":24.9,"humedad":56.4,"led":"ON","secuencia":9,"uptime":40153}
+18:22:13  comando     OFF
+18:22:13  auditoria   COMANDO_ACEPTADO:OFF
+18:22:16  telemetria  {"dispositivo":"floresvalencia","temperatura":25,"humedad":56.4,"led":"OFF","secuencia":10,"uptime":45157}
+18:22:21  telemetria  {"dispositivo":"floresvalencia","temperatura":25.3,"humedad":56.3,"led":"OFF","secuencia":11,"uptime":50162}

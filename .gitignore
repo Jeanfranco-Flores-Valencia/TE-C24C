@@ -9,3 +9,8 @@ node_modules/
 *.log
 **/firmware/test_host/harness
 !**/docs/evidencias/*.log
+# Lab 13 y siguientes
+**/include/secrets.h
+**/.pio/
+**/test_host/harness_?
+**/test_host/ArduinoJson/

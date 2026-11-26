@@ -1,0 +1,893 @@
+[
+    {
+        "id": "flow_lab13b",
+        "type": "tab",
+        "label": "Laboratorio 13 - Parte B (seguridad)",
+        "disabled": false,
+        "info": "Reto: validación de telemetría, repetición, abuso de frecuencia y comandos firmados con HMAC-SHA256.\nRequiere la variable de entorno LAB13_HMAC_KEY."
+    },
+    {
+        "id": "b_mqtt_tele",
+        "type": "mqtt in",
+        "z": "flow_lab13b",
+        "name": "Telemetría ESP32",
+        "topic": "tecsup/ii3010/lab13/floresvalencia/telemetria",
+        "qos": "0",
+        "datatype": "utf8",
+        "broker": "broker_lab13",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 100,
+        "wires": [
+            [
+                "b_validar"
+            ]
+        ]
+    },
+    {
+        "id": "b_validar",
+        "type": "function",
+        "z": "flow_lab13b",
+        "name": "Validar telemetría",
+        "func": "// Valida la telemetría antes de mostrarla: tamaño, JSON, dispositivo, tipos,\n// rangos físicos, repetición (arranque + secuencia) y abuso de frecuencia.\nconst ID = 'floresvalencia';\nconst MAX_MSG = 6, VENTANA = 10000;     // el ESP32 publica 2 cada 10 s; margen para reconexiones\nconst ev = (nivel, evento, detalle) => node.send([null, { payload: { nivel, origen: 'node-red', evento, detalle } }]);\nconst rechazar = (evento, detalle, nivel = 'alerta') => { ev(nivel, evento, detalle); node.status({ fill: 'red', shape: 'ring', text: evento }); return null; };\n\nconst raw = typeof msg.payload === 'string' ? msg.payload : JSON.stringify(msg.payload);\n// Frecuencia: se cuenta todo lo que llega al topic\nconst t = (context.get('tiempos') || []).filter(x => Date.now() - x < VENTANA);\nt.push(Date.now()); context.set('tiempos', t);\nif (t.length > MAX_MSG) {\n  const avisos = context.get('avisosAbuso') || 0;\n  context.set('avisosAbuso', avisos + 1);\n  if (avisos % 5 === 0) ev('alerta', 'ABUSO_FRECUENCIA', t.length + ' mensajes en 10 s (máx. ' + MAX_MSG + '); se descartan');\n  node.status({ fill: 'red', shape: 'dot', text: 'ABUSO_FRECUENCIA' });\n  return null;\n}\ncontext.set('avisosAbuso', 0);\nif (raw.length > 512) return rechazar('TELEMETRIA_INVALIDA', 'mensaje de ' + raw.length + ' bytes');\nlet d; try { d = JSON.parse(raw); } catch (e) { return rechazar('TELEMETRIA_INVALIDA', 'no es JSON'); }\nif (!d || typeof d !== 'object' || Array.isArray(d)) return rechazar('TELEMETRIA_INVALIDA', 'no es un objeto');\nif (d.dispositivo !== ID) return rechazar('TELEMETRIA_INVALIDA', 'dispositivo desconocido: ' + String(d.dispositivo).slice(0, 20));\nif (typeof d.temperatura !== 'number' || typeof d.humedad !== 'number') return rechazar('TELEMETRIA_INVALIDA', 'temperatura/humedad no numéricas');\nif (d.temperatura < -40 || d.temperatura > 80) return rechazar('TELEMETRIA_ANOMALA', 'temperatura fuera de rango: ' + d.temperatura);\nif (d.humedad < 0 || d.humedad > 100) return rechazar('TELEMETRIA_ANOMALA', 'humedad fuera de rango: ' + d.humedad);\nif (!['ON', 'OFF'].includes(d.led)) return rechazar('TELEMETRIA_INVALIDA', 'estado de LED inválido');\nif (!Number.isInteger(d.secuencia) || d.secuencia < 1) return rechazar('TELEMETRIA_INVALIDA', 'secuencia inválida');\nif (typeof d.arranque !== 'string' || !/^[0-9a-f]{8}$/i.test(d.arranque)) return rechazar('TELEMETRIA_INVALIDA', 'arranque inválido');\n// Repetición: dentro del mismo arranque la secuencia debe crecer\nconst ult = context.get('ultima') || {};\nif (ult.arranque === d.arranque && d.secuencia <= ult.secuencia) return rechazar('TELEMETRIA_REPETIDA', 'secuencia ' + d.secuencia + ' <= ' + ult.secuencia);\nif (ult.arranque && ult.arranque !== d.arranque) ev('info', 'REINICIO_ESP32', 'arranque ' + ult.arranque + ' -> ' + d.arranque);\ncontext.set('ultima', { arranque: d.arranque, secuencia: d.secuencia });\nflow.set('ultimoMensaje', Date.now());\nflow.set('led', d.led);\nnode.status({ fill: 'green', shape: 'dot', text: 'OK sec ' + d.secuencia });\nreturn [{ payload: d }, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 100,
+        "wires": [
+            [
+                "b_separar"
+            ],
+            [
+                "b_acumular"
+            ]
+        ],
+        "outputLabels": [
+            "telemetría válida",
+            "evento"
+        ]
+    },
+    {
+        "id": "b_separar",
+        "type": "function",
+        "z": "flow_lab13b",
+        "name": "Separar telemetría",
+        "func": "const d = msg.payload;\nreturn [\n  { payload: d.temperatura, topic: 'Temperatura' },\n  { payload: d.humedad, topic: 'Humedad' },\n  { payload: d.dispositivo + ' | LED ' + d.led + ' | Secuencia ' + d.secuencia + ' | Arranque ' + d.arranque }\n];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 80,
+        "wires": [
+            [
+                "b_gauge_temp",
+                "b_chart"
+            ],
+            [
+                "b_gauge_hum",
+                "b_chart"
+            ],
+            [
+                "b_text_estado"
+            ]
+        ]
+    },
+    {
+        "id": "b_gauge_temp",
+        "type": "ui-gauge",
+        "z": "flow_lab13b",
+        "name": "Temperatura",
+        "group": "b_group_sensores",
+        "order": 1,
+        "width": "3",
+        "height": "3",
+        "gtype": "gauge-half",
+        "gstyle": "needle",
+        "title": "Temperatura",
+        "units": "°C",
+        "icon": "device_thermostat",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "-20",
+                "color": "#2196f3"
+            },
+            {
+                "from": "25",
+                "color": "#ffc107"
+            },
+            {
+                "from": "40",
+                "color": "#e1261c"
+            }
+        ],
+        "min": -20,
+        "max": 80,
+        "sizeThickness": 16,
+        "sizeGap": 4,
+        "sizeKeyThickness": 8,
+        "styleRounded": true,
+        "styleGlow": false,
+        "className": "",
+        "x": 820,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "b_gauge_hum",
+        "type": "ui-gauge",
+        "z": "flow_lab13b",
+        "name": "Humedad",
+        "group": "b_group_sensores",
+        "order": 2,
+        "width": "3",
+        "height": "3",
+        "gtype": "gauge-half",
+        "gstyle": "needle",
+        "title": "Humedad",
+        "units": "%",
+        "icon": "water_drop",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#ffc107"
+            },
+            {
+                "from": "30",
+                "color": "#238636"
+            },
+            {
+                "from": "75",
+                "color": "#2196f3"
+            }
+        ],
+        "min": 0,
+        "max": 100,
+        "sizeThickness": 16,
+        "sizeGap": 4,
+        "sizeKeyThickness": 8,
+        "styleRounded": true,
+        "styleGlow": false,
+        "className": "",
+        "x": 820,
+        "y": 90,
+        "wires": []
+    },
+    {
+        "id": "b_chart",
+        "type": "ui-chart",
+        "z": "flow_lab13b",
+        "group": "b_group_grafico",
+        "name": "Histórico ambiental",
+        "label": "Temperatura y humedad",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "msg",
+        "xAxisType": "time",
+        "yAxisProperty": "",
+        "ymin": "-20",
+        "ymax": "100",
+        "action": "append",
+        "pointShape": "circle",
+        "pointRadius": 3,
+        "showLegend": true,
+        "removeOlder": 10,
+        "removeOlderUnit": "60",
+        "removeOlderPoints": "",
+        "colors": [
+            "#e1261c",
+            "#2196f3"
+        ],
+        "width": "6",
+        "height": "6",
+        "className": "",
+        "x": 830,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "b_text_estado",
+        "type": "ui-text",
+        "z": "flow_lab13b",
+        "group": "b_group_sensores",
+        "order": 3,
+        "width": "6",
+        "height": "1",
+        "name": "Estado ESP32",
+        "label": "Estado",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#202124",
+        "className": "",
+        "x": 820,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "b_mqtt_audit",
+        "type": "mqtt in",
+        "z": "flow_lab13b",
+        "name": "Auditoría ESP32",
+        "topic": "tecsup/ii3010/lab13/floresvalencia/auditoria",
+        "qos": "0",
+        "datatype": "utf8",
+        "broker": "broker_lab13",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 260,
+        "wires": [
+            [
+                "b_evento_esp"
+            ]
+        ]
+    },
+    {
+        "id": "b_evento_esp",
+        "type": "function",
+        "z": "flow_lab13b",
+        "name": "Evento del ESP32",
+        "func": "// Eventos que publica el ESP32 en el topic de auditoría\nconst e = String(msg.payload).slice(0, 120);\nconst nivel = e.startsWith('COMANDO_RECHAZADO') || e.startsWith('SENSOR_ERROR') ? 'alerta' : 'info';\nreturn { payload: { nivel, origen: 'esp32', evento: e.split(':')[0], detalle: e } };",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 260,
+        "wires": [
+            [
+                "b_acumular"
+            ]
+        ]
+    },
+    {
+        "id": "b_acumular",
+        "type": "function",
+        "z": "flow_lab13b",
+        "name": "Registrar auditoría",
+        "func": "// Lista de los últimos 30 eventos + contadores para el dashboard\nconst e = msg.payload;\ne.hora = new Date().toLocaleTimeString('es-PE', { hour12: false });\nconst lista = flow.get('eventos') || [];\nlista.unshift({ hora: e.hora, nivel: e.nivel, origen: e.origen, evento: e.evento, detalle: e.detalle || '' });\nif (lista.length > 30) lista.length = 30;\nflow.set('eventos', lista);\nconst c = flow.get('contadores') || { aceptados: 0, rechazados: 0, alertas: 0 };\nif (e.evento === 'COMANDO_ACEPTADO') c.aceptados++;\nif (e.evento === 'COMANDO_RECHAZADO') c.rechazados++;\nif (e.nivel === 'alerta') c.alertas++;\nflow.set('contadores', c);\nreturn [{ payload: lista }, { payload: 'Comandos aceptados ' + c.aceptados + ' · rechazados ' + c.rechazados + ' · alertas ' + c.alertas }, { payload: e.evento + ' — ' + (e.detalle || '') }];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 260,
+        "wires": [
+            [
+                "b_tabla"
+            ],
+            [
+                "b_text_contadores"
+            ],
+            [
+                "b_text_ultimo",
+                "b_debug"
+            ]
+        ],
+        "outputLabels": [
+            "tabla",
+            "contadores",
+            "último"
+        ]
+    },
+    {
+        "id": "b_tabla",
+        "type": "ui-table",
+        "z": "flow_lab13b",
+        "group": "b_group_auditoria",
+        "name": "Tabla de auditoría",
+        "label": "",
+        "order": 3,
+        "width": "12",
+        "height": "8",
+        "maxrows": "10",
+        "passthru": false,
+        "autocols": false,
+        "showSearch": false,
+        "deselect": true,
+        "selectionType": "none",
+        "columns": [
+            {
+                "title": "Hora",
+                "key": "hora",
+                "keyType": "key",
+                "type": "text",
+                "width": "",
+                "align": "start"
+            },
+            {
+                "title": "Nivel",
+                "key": "nivel",
+                "keyType": "key",
+                "type": "text",
+                "width": "",
+                "align": "start"
+            },
+            {
+                "title": "Origen",
+                "key": "origen",
+                "keyType": "key",
+                "type": "text",
+                "width": "",
+                "align": "start"
+            },
+            {
+                "title": "Evento",
+                "key": "evento",
+                "keyType": "key",
+                "type": "text",
+                "width": "",
+                "align": "start"
+            },
+            {
+                "title": "Detalle",
+                "key": "detalle",
+                "keyType": "key",
+                "type": "text",
+                "width": "",
+                "align": "start"
+            }
+        ],
+        "mobileBreakpoint": "sm",
+        "mobileBreakpointType": "defaults",
+        "action": "replace",
+        "className": "",
+        "x": 840,
+        "y": 240,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "b_text_contadores",
+        "type": "ui-text",
+        "z": "flow_lab13b",
+        "group": "b_group_auditoria",
+        "order": 1,
+        "width": "12",
+        "height": "1",
+        "name": "Contadores",
+        "label": "Seguridad",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#202124",
+        "className": "",
+        "x": 850,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "b_text_ultimo",
+        "type": "ui-text",
+        "z": "flow_lab13b",
+        "group": "b_group_auditoria",
+        "order": 2,
+        "width": "12",
+        "height": "1",
+        "name": "Último evento",
+        "label": "Último evento",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "monospace",
+        "fontSize": 14,
+        "color": "#b71c1c",
+        "className": "",
+        "x": 840,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "b_debug",
+        "type": "debug",
+        "z": "flow_lab13b",
+        "name": "Auditoría",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 820,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "b_inject_estado",
+        "type": "inject",
+        "z": "flow_lab13b",
+        "name": "cada 3 s",
+        "props": [],
+        "repeat": "3",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "1",
+        "topic": "",
+        "x": 140,
+        "y": 420,
+        "wires": [
+            [
+                "b_conexion"
+            ]
+        ]
+    },
+    {
+        "id": "b_conexion",
+        "type": "function",
+        "z": "flow_lab13b",
+        "name": "Estado de conexión",
+        "func": "const u = flow.get('ultimoMensaje');\nif (!u) return { payload: '⚪ Esperando telemetría' };\nconst s = Math.round((Date.now() - u) / 1000);\nreturn { payload: s <= 15 ? '🟢 En línea (hace ' + s + ' s)' : '🔴 Sin datos hace ' + s + ' s' };",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 420,
+        "wires": [
+            [
+                "b_text_conexion"
+            ]
+        ]
+    },
+    {
+        "id": "b_text_conexion",
+        "type": "ui-text",
+        "z": "flow_lab13b",
+        "group": "b_group_control",
+        "order": 1,
+        "width": "6",
+        "height": "1",
+        "name": "Conexión",
+        "label": "Conexión",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#202124",
+        "className": "",
+        "x": 560,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "b_button_on",
+        "type": "ui-button",
+        "z": "flow_lab13b",
+        "group": "b_group_control",
+        "name": "Encender LED",
+        "label": "ENCENDER",
+        "order": 2,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "tooltip": "",
+        "color": "#ffffff",
+        "bgcolor": "#238636",
+        "className": "",
+        "icon": "power_settings_new",
+        "payload": "ON",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 150,
+        "y": 500,
+        "wires": [
+            [
+                "b_firmar"
+            ]
+        ]
+    },
+    {
+        "id": "b_button_off",
+        "type": "ui-button",
+        "z": "flow_lab13b",
+        "group": "b_group_control",
+        "name": "Apagar LED",
+        "label": "APAGAR",
+        "order": 3,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "tooltip": "",
+        "color": "#ffffff",
+        "bgcolor": "#c62828",
+        "className": "",
+        "icon": "power_off",
+        "payload": "OFF",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 150,
+        "y": 540,
+        "wires": [
+            [
+                "b_firmar"
+            ]
+        ]
+    },
+    {
+        "id": "b_firmar",
+        "type": "function",
+        "z": "flow_lab13b",
+        "name": "Firmar comando (HMAC)",
+        "func": "// Firma el comando con HMAC-SHA256. La clave viene de la variable de entorno\n// LAB13_HMAC_KEY (no queda guardada en el flow). La secuencia es Date.now(),\n// que siempre crece aunque Node-RED se reinicie.\nconst ID = 'floresvalencia';\nconst clave = env.get('LAB13_HMAC_KEY');\nconst ev = (nivel, evento, detalle) => ({ payload: { nivel, origen: 'dashboard', evento, detalle } });\nif (!clave || clave.length < 16) {\n  node.status({ fill: 'red', shape: 'ring', text: 'falta LAB13_HMAC_KEY' });\n  return [null, ev('alerta', 'SIN_CLAVE', 'defina LAB13_HMAC_KEY antes de iniciar Node-RED')];\n}\nconst accion = msg.payload === 'ON' ? 'ON' : msg.payload === 'OFF' ? 'OFF' : null;\nif (!accion) return [null, ev('alerta', 'ACCION_INVALIDA', String(msg.payload))];\n// Límite de comandos desde el dashboard (máx. 10 por minuto)\nconst t = (context.get('tiempos') || []).filter(x => Date.now() - x < 60000);\nif (t.length >= 10) return [null, ev('alerta', 'ABUSO_COMANDOS', 'más de 10 comandos por minuto')];\nt.push(Date.now()); context.set('tiempos', t);\nlet secuencia = Date.now();\nconst previa = context.get('secuencia') || 0;\nif (secuencia <= previa) secuencia = previa + 1;\ncontext.set('secuencia', secuencia);\nconst firma = crypto.createHmac('sha256', clave).update(accion + '|' + secuencia + '|' + ID).digest('hex');\nconst cmd = { accion, secuencia, firma };\nflow.set('ultimoComando', JSON.stringify(cmd));   // para la prueba de repetición\nnode.status({ fill: 'green', shape: 'dot', text: accion + ' ' + secuencia });\nreturn [{ payload: JSON.stringify(cmd) }, ev('info', 'COMANDO_FIRMADO', accion + ' secuencia ' + secuencia)];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "crypto",
+                "module": "crypto"
+            }
+        ],
+        "x": 380,
+        "y": 520,
+        "wires": [
+            [
+                "b_mqtt_comando"
+            ],
+            [
+                "b_acumular"
+            ]
+        ],
+        "outputLabels": [
+            "comando firmado",
+            "evento"
+        ]
+    },
+    {
+        "id": "b_mqtt_comando",
+        "type": "mqtt out",
+        "z": "flow_lab13b",
+        "name": "Publicar comando",
+        "topic": "tecsup/ii3010/lab13/floresvalencia/comando",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "broker_lab13",
+        "x": 640,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "b_prueba_sinfirma",
+        "type": "ui-button",
+        "z": "flow_lab13b",
+        "group": "b_group_pruebas",
+        "name": "Prueba: ON sin firma",
+        "label": "ON SIN FIRMA",
+        "order": 1,
+        "width": "4",
+        "height": "1",
+        "passthru": false,
+        "tooltip": "",
+        "color": "#ffffff",
+        "bgcolor": "#6e7681",
+        "className": "",
+        "icon": "block",
+        "payload": "x",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 150,
+        "y": 620,
+        "wires": [
+            [
+                "b_fn_sinfirma"
+            ]
+        ]
+    },
+    {
+        "id": "b_prueba_repetir",
+        "type": "ui-button",
+        "z": "flow_lab13b",
+        "group": "b_group_pruebas",
+        "name": "Prueba: repetir comando",
+        "label": "REPETIR ÚLTIMO",
+        "order": 2,
+        "width": "4",
+        "height": "1",
+        "passthru": false,
+        "tooltip": "",
+        "color": "#ffffff",
+        "bgcolor": "#6e7681",
+        "className": "",
+        "icon": "replay",
+        "payload": "x",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 160,
+        "y": 660,
+        "wires": [
+            [
+                "b_fn_repetir"
+            ]
+        ]
+    },
+    {
+        "id": "b_prueba_falsa",
+        "type": "ui-button",
+        "z": "flow_lab13b",
+        "group": "b_group_pruebas",
+        "name": "Prueba: firma falsa",
+        "label": "FIRMA FALSA",
+        "order": 3,
+        "width": "4",
+        "height": "1",
+        "passthru": false,
+        "tooltip": "",
+        "color": "#ffffff",
+        "bgcolor": "#6e7681",
+        "className": "",
+        "icon": "gpp_bad",
+        "payload": "x",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 150,
+        "y": 700,
+        "wires": [
+            [
+                "b_fn_falsa"
+            ]
+        ]
+    },
+    {
+        "id": "b_fn_sinfirma",
+        "type": "function",
+        "z": "flow_lab13b",
+        "name": "ON sin firma",
+        "func": "// PRUEBA NEGATIVA: publica \"ON\" sin firma, como en la Parte A.\nreturn [{ payload: 'ON' }, { payload: { nivel: 'info', origen: 'prueba', evento: 'PRUEBA_SIN_FIRMA', detalle: 'se envió ON en texto plano' } }];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 620,
+        "wires": [
+            [
+                "b_mqtt_comando"
+            ],
+            [
+                "b_acumular"
+            ]
+        ]
+    },
+    {
+        "id": "b_fn_repetir",
+        "type": "function",
+        "z": "flow_lab13b",
+        "name": "Repetir último comando",
+        "func": "// PRUEBA NEGATIVA: reenvía exactamente el último comando firmado (ataque de repetición).\nconst c = flow.get('ultimoComando');\nif (!c) return [null, { payload: { nivel: 'warn', origen: 'prueba', evento: 'PRUEBA_REPETICION', detalle: 'aún no hay un comando firmado que repetir' } }];\nreturn [{ payload: c }, { payload: { nivel: 'info', origen: 'prueba', evento: 'PRUEBA_REPETICION', detalle: 'se reenvió el último comando firmado' } }];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 660,
+        "wires": [
+            [
+                "b_mqtt_comando"
+            ],
+            [
+                "b_acumular"
+            ]
+        ]
+    },
+    {
+        "id": "b_fn_falsa",
+        "type": "function",
+        "z": "flow_lab13b",
+        "name": "Firma falsa",
+        "func": "// PRUEBA NEGATIVA: comando con firma inventada (atacante sin la clave).\nlet falsa = '';\nfor (let i = 0; i < 64; i++) falsa += '0123456789abcdef'[Math.floor(Math.random() * 16)];\nconst cmd = { accion: 'ON', secuencia: Date.now(), firma: falsa };\nreturn [{ payload: JSON.stringify(cmd) }, { payload: { nivel: 'info', origen: 'prueba', evento: 'PRUEBA_FIRMA_FALSA', detalle: 'se envió ON con firma inventada' } }];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 700,
+        "wires": [
+            [
+                "b_mqtt_comando"
+            ],
+            [
+                "b_acumular"
+            ]
+        ]
+    },
+    {
+        "id": "broker_lab13",
+        "type": "mqtt-broker",
+        "name": "Mosquitto didáctico",
+        "broker": "test.mosquitto.org",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "ui_base_lab13",
+        "type": "ui-base",
+        "name": "TECSUP IoT",
+        "path": "/dashboard",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "navigationStyle": "default"
+    },
+    {
+        "id": "theme_lab13",
+        "type": "ui-theme",
+        "name": "TECSUP",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#e1261c",
+            "bgPage": "#f2f4f7",
+            "groupBg": "#ffffff",
+            "groupOutline": "#d9dde3"
+        },
+        "sizes": {
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "8px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "b_page",
+        "type": "ui-page",
+        "name": "Laboratorio 13 - Seguridad",
+        "ui": "ui_base_lab13",
+        "path": "/lab13-seguro",
+        "icon": "dashboard",
+        "layout": "grid",
+        "theme": "theme_lab13",
+        "order": 2,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "b_group_sensores",
+        "type": "ui-group",
+        "name": "Sensores ESP32",
+        "page": "b_page",
+        "width": "6",
+        "height": "1",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "b_group_control",
+        "type": "ui-group",
+        "name": "Control del LED (comandos firmados)",
+        "page": "b_page",
+        "width": "6",
+        "height": "1",
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "b_group_grafico",
+        "type": "ui-group",
+        "name": "Histórico",
+        "page": "b_page",
+        "width": "6",
+        "height": "1",
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "b_group_pruebas",
+        "type": "ui-group",
+        "name": "Pruebas de seguridad",
+        "page": "b_page",
+        "width": "6",
+        "height": "1",
+        "order": 4,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "b_group_auditoria",
+        "type": "ui-group",
+        "name": "Auditoría y ciberseguridad",
+        "page": "b_page",
+        "width": "12",
+        "height": "1",
+        "order": 5,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "global_lab13",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "@flowfuse/node-red-dashboard": "latest"
+        }
+    }
+]

@@ -1,0 +1,484 @@
+[
+    {
+        "id": "flow_lab13",
+        "type": "tab",
+        "label": "Laboratorio 13 - IoT Dashboard",
+        "disabled": false,
+        "info": "TECSUP II3010 - Parte A"
+    },
+    {
+        "id": "mqtt_tele",
+        "type": "mqtt in",
+        "z": "flow_lab13",
+        "name": "Telemetría ESP32",
+        "topic": "tecsup/ii3010/lab13/floresvalencia/telemetria",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "broker_lab13",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 100,
+        "wires": [
+            [
+                "json_tele"
+            ]
+        ]
+    },
+    {
+        "id": "json_tele",
+        "type": "json",
+        "z": "flow_lab13",
+        "name": "Convertir JSON",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 340,
+        "y": 100,
+        "wires": [
+            [
+                "procesar_tele"
+            ]
+        ]
+    },
+    {
+        "id": "procesar_tele",
+        "type": "function",
+        "z": "flow_lab13",
+        "name": "Separar telemetría",
+        "func": "const d=msg.payload;\nif(!d || typeof d.temperatura!=='number' || typeof d.humedad!=='number'){node.warn('Telemetría inválida');return null;}\nconst t={payload:d.temperatura,topic:'Temperatura'};\nconst h={payload:d.humedad,topic:'Humedad'};\nconst e={payload:`${d.dispositivo} | LED ${d.led} | Secuencia ${d.secuencia}`};\nreturn [t,h,e];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 100,
+        "wires": [
+            [
+                "gauge_temp",
+                "chart_ambiente"
+            ],
+            [
+                "gauge_hum",
+                "chart_ambiente"
+            ],
+            [
+                "text_estado"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_audit",
+        "type": "mqtt in",
+        "z": "flow_lab13",
+        "name": "Auditoría ESP32",
+        "topic": "tecsup/ii3010/lab13/floresvalencia/auditoria",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "broker_lab13",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 200,
+        "wires": [
+            [
+                "text_audit",
+                "debug_audit"
+            ]
+        ]
+    },
+    {
+        "id": "button_on",
+        "type": "ui-button",
+        "z": "flow_lab13",
+        "group": "group_control",
+        "name": "Encender LED",
+        "label": "ENCENDER",
+        "order": 1,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "tooltip": "",
+        "color": "#ffffff",
+        "bgcolor": "#238636",
+        "className": "",
+        "icon": "power_settings_new",
+        "payload": "ON",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 170,
+        "y": 300,
+        "wires": [
+            [
+                "mqtt_comando"
+            ]
+        ]
+    },
+    {
+        "id": "button_off",
+        "type": "ui-button",
+        "z": "flow_lab13",
+        "group": "group_control",
+        "name": "Apagar LED",
+        "label": "APAGAR",
+        "order": 2,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "tooltip": "",
+        "color": "#ffffff",
+        "bgcolor": "#c62828",
+        "className": "",
+        "icon": "power_off",
+        "payload": "OFF",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 170,
+        "y": 350,
+        "wires": [
+            [
+                "mqtt_comando"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_comando",
+        "type": "mqtt out",
+        "z": "flow_lab13",
+        "name": "Publicar comando",
+        "topic": "tecsup/ii3010/lab13/floresvalencia/comando",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "broker_lab13",
+        "x": 430,
+        "y": 325,
+        "wires": []
+    },
+    {
+        "id": "gauge_temp",
+        "type": "ui-gauge",
+        "z": "flow_lab13",
+        "name": "Temperatura",
+        "group": "group_sensores",
+        "order": 1,
+        "width": "3",
+        "height": "3",
+        "gtype": "gauge-half",
+        "gstyle": "needle",
+        "title": "Temperatura",
+        "units": "°C",
+        "icon": "device_thermostat",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "-20",
+                "color": "#2196f3"
+            },
+            {
+                "from": "25",
+                "color": "#ffc107"
+            },
+            {
+                "from": "40",
+                "color": "#e1261c"
+            }
+        ],
+        "min": -20,
+        "max": 80,
+        "sizeThickness": 16,
+        "sizeGap": 4,
+        "sizeKeyThickness": 8,
+        "styleRounded": true,
+        "styleGlow": false,
+        "className": "",
+        "x": 800,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "gauge_hum",
+        "type": "ui-gauge",
+        "z": "flow_lab13",
+        "name": "Humedad",
+        "group": "group_sensores",
+        "order": 2,
+        "width": "3",
+        "height": "3",
+        "gtype": "gauge-half",
+        "gstyle": "needle",
+        "title": "Humedad",
+        "units": "%",
+        "icon": "water_drop",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#ffc107"
+            },
+            {
+                "from": "30",
+                "color": "#238636"
+            },
+            {
+                "from": "75",
+                "color": "#2196f3"
+            }
+        ],
+        "min": 0,
+        "max": 100,
+        "sizeThickness": 16,
+        "sizeGap": 4,
+        "sizeKeyThickness": 8,
+        "styleRounded": true,
+        "styleGlow": false,
+        "className": "",
+        "x": 800,
+        "y": 110,
+        "wires": []
+    },
+    {
+        "id": "chart_ambiente",
+        "type": "ui-chart",
+        "z": "flow_lab13",
+        "group": "group_grafico",
+        "name": "Histórico ambiental",
+        "label": "Temperatura y humedad",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "msg",
+        "xAxisType": "time",
+        "yAxisProperty": "",
+        "ymin": "-20",
+        "ymax": "100",
+        "action": "append",
+        "pointShape": "circle",
+        "pointRadius": 3,
+        "showLegend": true,
+        "removeOlder": 10,
+        "removeOlderUnit": "60",
+        "removeOlderPoints": "",
+        "colors": [
+            "#e1261c",
+            "#2196f3"
+        ],
+        "width": "6",
+        "height": "6",
+        "className": "",
+        "x": 810,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "text_estado",
+        "type": "ui-text",
+        "z": "flow_lab13",
+        "group": "group_sensores",
+        "order": 3,
+        "width": "6",
+        "height": "1",
+        "name": "Estado ESP32",
+        "label": "Estado",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#202124",
+        "className": "",
+        "x": 800,
+        "y": 210,
+        "wires": []
+    },
+    {
+        "id": "text_audit",
+        "type": "ui-text",
+        "z": "flow_lab13",
+        "group": "group_auditoria",
+        "order": 1,
+        "width": "6",
+        "height": "2",
+        "name": "Último evento",
+        "label": "Auditoría",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "monospace",
+        "fontSize": 15,
+        "color": "#b71c1c",
+        "className": "",
+        "x": 380,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "debug_audit",
+        "type": "debug",
+        "z": "flow_lab13",
+        "name": "Eventos de auditoría",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 400,
+        "y": 245,
+        "wires": []
+    },
+    {
+        "id": "broker_lab13",
+        "type": "mqtt-broker",
+        "name": "Mosquitto didáctico",
+        "broker": "test.mosquitto.org",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "ui_base_lab13",
+        "type": "ui-base",
+        "name": "TECSUP IoT",
+        "path": "/dashboard",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "navigationStyle": "default"
+    },
+    {
+        "id": "theme_lab13",
+        "type": "ui-theme",
+        "name": "TECSUP",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#e1261c",
+            "bgPage": "#f2f4f7",
+            "groupBg": "#ffffff",
+            "groupOutline": "#d9dde3"
+        },
+        "sizes": {
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "8px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "page_lab13",
+        "type": "ui-page",
+        "name": "Laboratorio 13",
+        "ui": "ui_base_lab13",
+        "path": "/lab13",
+        "icon": "dashboard",
+        "layout": "grid",
+        "theme": "theme_lab13",
+        "order": 1,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "group_sensores",
+        "type": "ui-group",
+        "name": "Sensores ESP32",
+        "page": "page_lab13",
+        "width": "6",
+        "height": "1",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "group_grafico",
+        "type": "ui-group",
+        "name": "Histórico",
+        "page": "page_lab13",
+        "width": "6",
+        "height": "1",
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "group_control",
+        "type": "ui-group",
+        "name": "Control del LED",
+        "page": "page_lab13",
+        "width": "6",
+        "height": "1",
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "group_auditoria",
+        "type": "ui-group",
+        "name": "Auditoría",
+        "page": "page_lab13",
+        "width": "6",
+        "height": "1",
+        "order": 4,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "global_lab13",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "@flowfuse/node-red-dashboard": "latest"
+        }
+    }
+]

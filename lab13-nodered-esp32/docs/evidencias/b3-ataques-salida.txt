@@ -1,0 +1,6 @@
+Conectado a mqtt://127.0.0.1:18832
+
+• telemetria-anomala   temperatura = 500 °C -> TELEMETRIA_ANOMALA
+• telemetria-invalida  humedad como texto -> TELEMETRIA_INVALIDA
+• dispositivo-falso    otro dispositivo -> TELEMETRIA_INVALIDA
+• telemetria-repetida  telemetría real capturada y reenviada -> TELEMETRIA_REPETIDA
