@@ -1,0 +1,17 @@
+$ pio run   (parte_a, PlatformIO Core 6.2.0)
+
+Processing esp32dev (platform: espressif32; board: esp32dev; framework: arduino)
+PLATFORM: Espressif 32 (8.0.0) > Espressif ESP32 Dev Module
+HARDWARE: ESP32 240MHz, 320KB RAM, 4MB Flash
+PACKAGES: 
+Dependency Graph
+|-- PubSubClient @ 2.8.0
+|-- ArduinoJson @ 7.4.3
+|-- DHT sensor library for ESPx @ 1.19.0
+|-- WiFi @ 3.3.12
+Building .pio/build/esp32dev/bootloader.bin
+Linking .pio/build/esp32dev/firmware.elf
+RAM:   [=         ]  14.4% (used 47232 bytes from 327680 bytes)
+Flash: [=======   ]  68.5% (used 897244 bytes from 1310720 bytes)
+Building .pio/build/esp32dev/firmware.bin
+========================= [SUCCESS] Took 13.52 seconds =========================

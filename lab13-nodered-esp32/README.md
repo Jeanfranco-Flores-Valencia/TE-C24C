@@ -107,7 +107,7 @@ La Parte B del simulador requiere `LAB13_HMAC_KEY`. `observar.js` equivale a MQT
 
 ## Evidencias
 
-Las capturas se tomaron con el simulador del ESP32 y un broker MQTT local, porque desde el entorno
+El Build de PlatformIO se ejecutó con el toolchain real del ESP32. Las capturas de Node-RED se tomaron con el simulador del ESP32 y un broker MQTT local, porque desde el entorno
 donde se prepararon no había acceso a `test.mosquitto.org`; el comportamiento es el mismo con el broker público.
 
 | | |
@@ -116,3 +116,4 @@ donde se prepararon no había acceso a `test.mosquitto.org`; el comportamiento e
 | ![](docs/evidencias/b1-node-red-flow-parte-b.png) Flow de la Parte B | ![](docs/evidencias/b2-dashboard-comando-firmado.png) Comando firmado aceptado |
 | ![](docs/evidencias/b3-dashboard-pruebas-negativas.png) Pruebas negativas | ![](docs/evidencias/b4-dashboard-abuso-frecuencia.png) Abuso de frecuencia |
 | ![](docs/evidencias/b5-mqtt-observador.png) Tráfico MQTT | ![](docs/evidencias/c1-verificacion-firmware.png) Verificación del firmware |
+| ![](docs/evidencias/a0-build-platformio.png) Build de PlatformIO con SUCCESS | |
