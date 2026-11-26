@@ -1,0 +1,5 @@
+Conectado a mqtt://127.0.0.1:18830. Objetivo: test/nr/esp32-01
+
+• flood        Ráfaga de 20 mensajes -> esperado ABUSO_RATE y bloqueo de 60s
+
+Revise la tabla de Auditoría del dashboard.

@@ -1,0 +1,32 @@
+{
+  "name": "lab14-servidor-iot",
+  "version": "1.0.0",
+  "description": "Servidor Node.js: MQTT + WebSockets + MongoDB Atlas con HMAC y anti-repetición",
+  "main": "src/index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "gen-secrets": "node tools/gen-secrets.js",
+    "simulador": "node tools/simulador-esp32.js",
+    "ataques": "node tools/ataques.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "chart.js": "^4.4.1",
+    "dotenv": "^18.0.10",
+    "express": "^4.22.3",
+    "mongodb": "^7.9.1",
+    "mqtt": "^5.16.1",
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "aedes": "^0.51.3"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  }
+}

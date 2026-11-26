@@ -1,0 +1,544 @@
+[
+  {
+    "id": "tab0001lab14",
+    "type": "tab",
+    "label": "Lab 14 - IoT seguro",
+    "disabled": false,
+    "info": "ESP32 + DHT22 -> MQTT (HMAC) -> Node-RED. Requiere variables de entorno TOPIC_BASE, DEVICE_KEYS (id:clave) y opcional DEVICE_ID. No guarde claves en el flujo."
+  },
+  {
+    "id": "brk0002lab14",
+    "type": "mqtt-broker",
+    "name": "Broker público",
+    "broker": "broker.hivemq.com",
+    "port": "1883",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "30",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "closeTopic": "",
+    "willTopic": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "uib0004lab14",
+    "type": "ui_base",
+    "theme": {
+      "name": "theme-dark"
+    },
+    "site": {
+      "name": "Lab 14 IoT",
+      "hideToolbar": "false",
+      "allowSwipe": "false",
+      "lockMenu": "false",
+      "allowTempTheme": "true",
+      "dateFormat": "DD/MM/YYYY",
+      "sizes": {
+        "sx": 48,
+        "sy": 48,
+        "gx": 6,
+        "gy": 6,
+        "cx": 6,
+        "cy": 6,
+        "px": 0,
+        "py": 0
+      }
+    }
+  },
+  {
+    "id": "uit0003lab14",
+    "type": "ui_tab",
+    "name": "Lab 14 IoT",
+    "icon": "dashboard",
+    "order": 1,
+    "disabled": false,
+    "hidden": false
+  },
+  {
+    "id": "grp0005lab14",
+    "type": "ui_group",
+    "name": "Medidores",
+    "tab": "uit0003lab14",
+    "order": 1,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "grp0006lab14",
+    "type": "ui_group",
+    "name": "Estado y control",
+    "tab": "uit0003lab14",
+    "order": 2,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "grp0007lab14",
+    "type": "ui_group",
+    "name": "Histórico",
+    "tab": "uit0003lab14",
+    "order": 3,
+    "disp": true,
+    "width": "12",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "grp0008lab14",
+    "type": "ui_group",
+    "name": "Auditoría",
+    "tab": "uit0003lab14",
+    "order": 4,
+    "disp": true,
+    "width": "12",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "inj0011lab14",
+    "type": "inject",
+    "name": "Al iniciar",
+    "props": [],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "x": 120,
+    "y": 60,
+    "wires": [
+      [
+        "fn000dlab14"
+      ]
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "fn000dlab14",
+    "type": "function",
+    "name": "Suscribir (TOPIC_BASE)",
+    "func": "\n// Suscripción dinámica: el prefijo sale de la variable de entorno TOPIC_BASE (no queda en el flujo)\nconst base = env.get('TOPIC_BASE');\nif (!base || !env.get('DEVICE_KEYS')) { node.error('Defina TOPIC_BASE y DEVICE_KEYS como variables de entorno antes de iniciar Node-RED'); node.status({ fill: 'red', shape: 'ring', text: 'faltan variables de entorno' }); return null; }\nnode.status({ fill: 'green', shape: 'dot', text: base });\nreturn { action: 'subscribe', topic: [ { topic: base + '/+/telemetry', qos: 0 }, { topic: base + '/+/audit', qos: 1 } ] };\n",
+    "outputs": 1,
+    "libs": [],
+    "x": 320,
+    "y": 60,
+    "wires": [
+      [
+        "mqi000flab14"
+      ]
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "mqi000flab14",
+    "type": "mqtt in",
+    "name": "telemetry + audit",
+    "topic": "",
+    "qos": "1",
+    "datatype": "utf8",
+    "broker": "brk0002lab14",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 1,
+    "x": 540,
+    "y": 60,
+    "wires": [
+      [
+        "fn0009lab14"
+      ]
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "fn0009lab14",
+    "type": "function",
+    "name": "Seguridad: HMAC, anti-repetición, validación, abuso",
+    "func": "\n// ===== utilidades comunes (mismo protocolo que server/src/protocol.js) =====\nfunction keys() {\n  const m = {};\n  String(env.get('DEVICE_KEYS') || '').split(',').forEach(p => { const i = p.indexOf(':'); if (i > 0) m[p.slice(0, i).trim()] = p.slice(i + 1).trim(); });\n  return m;\n}\nconst hmac = (k, t) => crypto.createHmac('sha256', Buffer.from(k, 'utf8')).update(t, 'utf8').digest('hex');\nfunction safeEq(a, b) {\n  if (typeof a !== 'string' || !/^[0-9a-f]{64}$/i.test(a) || !/^[0-9a-f]{64}$/i.test(b)) return false;\n  return crypto.timingSafeEqual(Buffer.from(a.toLowerCase(), 'hex'), Buffer.from(b.toLowerCase(), 'hex'));\n}\nconst nowS = () => Math.floor(Date.now() / 1000);\n\n// ===== Seguridad de entrada: tamaño, JSON, lista blanca, esquema, HMAC, anti-repetición, abuso, rangos =====\nconst WINDOW = 30, RATE_MAX = 12, RATE_WIN = 10000, BLOCK_MS = 60000, BAD_MAX = 5, SEQ_WINDOW = 32;\nconst parts = msg.topic.split('/');\nconst kind = parts.pop();\nconst deviceId = parts.pop();\nconst raw = typeof msg.payload === 'string' ? msg.payload : String(msg.payload);\n// Limitador: máx. 3 eventos iguales cada 10 s para que un flood no inunde la auditoría\nconst audit = (nivel, codigo, detalle) => {\n  const th = flow.get('auditTh') || {}; const k = codigo + ':' + deviceId; const now = Date.now();\n  if (!th[k] || now - th[k].t > 10000) th[k] = { t: now, n: 0 };\n  th[k].n++; flow.set('auditTh', th);\n  if (th[k].n > 3) return;\n  node.send([null, { payload: { fecha: new Date().toISOString(), origen: 'node-red', nivel, codigo, deviceId, detalle } }]);\n};\nconst reject = (codigo, detalle, alerta) => { audit(alerta ? 'alerta' : 'warn', codigo, detalle); node.status({ fill: 'red', shape: 'ring', text: codigo }); return null; };\n\nif (kind !== 'telemetry' && kind !== 'audit') return null;\nif (raw.length > 512) return reject('PAYLOAD_GRANDE', raw.length + ' bytes');\nlet m; try { m = JSON.parse(raw); } catch (e) { return reject('JSON_INVALIDO', 'no se pudo parsear'); }\nif (!m || typeof m !== 'object' || Array.isArray(m)) return reject('JSON_INVALIDO', 'no es objeto');\nconst key = keys()[deviceId];\nif (!key) return reject('DISPOSITIVO_DESCONOCIDO', deviceId);\nif (m.deviceId !== deviceId) return reject('DEVICE_MISMATCH', 'tópico=' + deviceId + ' msg=' + m.deviceId);\n\nconst blocked = flow.get('blocked') || {};\nif (blocked[deviceId] && blocked[deviceId] > Date.now()) return reject('BLOQUEADO', 'bloqueado por abuso');\n\nif (typeof m.boot !== 'string' || !/^[0-9a-f]{8}$/i.test(m.boot) || !Number.isInteger(m.seq) || m.seq < 0 || !Number.isInteger(m.ts) || typeof m.sig !== 'string') return reject('ESQUEMA', 'campos base inválidos');\nlet canon;\nif (kind === 'telemetry') {\n  if (typeof m.temp !== 'number' || !isFinite(m.temp) || typeof m.hum !== 'number' || !isFinite(m.hum) || typeof m.led !== 'boolean') return reject('ESQUEMA', 'temp/hum/led inválidos');\n  canon = ['T', m.deviceId, m.boot, m.seq, m.ts, m.temp.toFixed(1), m.hum.toFixed(1), m.led ? 1 : 0].join('|');\n} else {\n  for (const f of ['event', 'ref', 'detail']) if (typeof m[f] !== 'string' || m[f].length > 64 || m[f].includes('|')) return reject('ESQUEMA', f + ' inválido');\n  canon = ['A', m.deviceId, m.boot, m.seq, m.ts, m.event, m.ref, m.detail].join('|');\n}\n\n// HMAC\nif (!safeEq(m.sig, hmac(key, canon))) {\n  const bad = (flow.get('badSig') || []).filter(t => Date.now() - t < 60000); bad.push(Date.now()); flow.set('badSig', bad);\n  if (bad.length >= BAD_MAX) return reject('ATAQUE_FIRMAS', bad.length + ' firmas inválidas en 60 s', true);\n  return reject('HMAC_INVALIDO', 'la firma no coincide');\n}\n// Abuso de un emisor autenticado\nconst rate = (flow.get('rate') || []).filter(t => Date.now() - t < RATE_WIN); rate.push(Date.now()); flow.set('rate', rate);\nif (rate.length > RATE_MAX) { blocked[deviceId] = Date.now() + BLOCK_MS; flow.set('blocked', blocked); return reject('ABUSO_RATE', rate.length + ' msgs en 10 s -> bloqueado 60 s', true); }\n// Anti-repetición\nconst skew = Math.abs(nowS() - m.ts);\nif (skew > WINDOW) return reject('REPLAY_TS', 'ts fuera de ventana (' + skew + ' s)');\nconst seen = flow.get('seen') || {};\nconst mid = deviceId + ':' + m.boot + ':' + m.seq;\nfor (const k in seen) if (seen[k] < Date.now()) delete seen[k];\nif (seen[mid]) return reject('REPLAY_DUPLICADO', m.boot + '-' + m.seq + ' ya recibido', true);\nconst last = (flow.get('lastSeq') || {})[deviceId];\nif (last && last.boot === m.boot && m.seq <= last.seq - SEQ_WINDOW) return reject('REPLAY_SEQ', 'seq demasiado antiguo', true);\n// Rangos físicos y anomalías\nif (kind === 'telemetry') {\n  if (m.temp < -40 || m.temp > 80) return reject('FUERA_DE_RANGO', 'temp=' + m.temp);\n  if (m.hum < 0 || m.hum > 100) return reject('FUERA_DE_RANGO', 'hum=' + m.hum);\n  const prev = flow.get('lastTemp');\n  if (prev !== undefined && Math.abs(m.temp - prev) > 10) audit('alerta', 'ANOMALIA', 'salto ' + prev + ' -> ' + m.temp);\n  flow.set('lastTemp', m.temp);\n}\n// Aceptado\nseen[mid] = Date.now() + 2 * WINDOW * 1000; flow.set('seen', seen);\nconst ls = flow.get('lastSeq') || {}; if (!last || last.boot !== m.boot || m.seq > last.seq) { ls[deviceId] = { boot: m.boot, seq: m.seq }; flow.set('lastSeq', ls); }\nflow.set('lastSeen', Date.now());\nnode.status({ fill: 'green', shape: 'dot', text: kind + ' OK seq ' + m.seq });\nif (kind === 'telemetry') { flow.set('led', m.led); return [{ payload: m }, null]; }\nconst nivel = (m.event === 'CMD_OK' || m.event === 'ARRANQUE' || m.event === 'RECONEXION') ? 'info' : 'alerta';\nreturn [null, { payload: { fecha: new Date().toISOString(), origen: 'dispositivo', nivel, codigo: m.event, deviceId, detalle: (m.ref ? 'ref=' + m.ref + ' ' : '') + m.detail } }];\n",
+    "outputs": 2,
+    "libs": [
+      {
+        "var": "crypto",
+        "module": "crypto"
+      }
+    ],
+    "x": 640,
+    "y": 160,
+    "wires": [
+      [
+        "fn000alab14"
+      ],
+      [
+        "fn000blab14"
+      ]
+    ],
+    "outputLabels": [
+      "telemetría válida",
+      "auditoría"
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "fn000alab14",
+    "type": "function",
+    "name": "Repartir a widgets",
+    "func": "\n// Reparte la telemetría validada a los widgets\nconst m = msg.payload;\nconst fecha = new Date(m.ts * 1000).toLocaleString();\nreturn [\n  { payload: m.temp },\n  { payload: m.hum },\n  [ { topic: 'Temperatura (°C)', payload: m.temp }, { topic: 'Humedad (%)', payload: m.hum } ],\n  { payload: m.led ? '🟢 Encendido' : '⚫ Apagado' },\n  { payload: fecha + ' · seq ' + m.seq + ' · HMAC ✔' }\n];\n",
+    "outputs": 5,
+    "libs": [],
+    "x": 960,
+    "y": 140,
+    "wires": [
+      [
+        "ui0013lab14"
+      ],
+      [
+        "ui0014lab14"
+      ],
+      [
+        "ui0015lab14"
+      ],
+      [
+        "ui0016lab14"
+      ],
+      [
+        "ui0017lab14"
+      ]
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "ui0013lab14",
+    "type": "ui_gauge",
+    "name": "Temperatura",
+    "group": "grp0005lab14",
+    "order": 1,
+    "width": 3,
+    "height": 3,
+    "gtype": "gage",
+    "title": "Temperatura",
+    "label": "°C",
+    "format": "{{value | number:1}}",
+    "min": -40,
+    "max": 80,
+    "colors": [
+      "#38bdf8",
+      "#22c55e",
+      "#ef4444"
+    ],
+    "seg1": "15",
+    "seg2": "35",
+    "x": 1200,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "ui0014lab14",
+    "type": "ui_gauge",
+    "name": "Humedad",
+    "group": "grp0005lab14",
+    "order": 2,
+    "width": 3,
+    "height": 3,
+    "gtype": "donut",
+    "title": "Humedad",
+    "label": "%",
+    "format": "{{value | number:1}}",
+    "min": 0,
+    "max": 100,
+    "colors": [
+      "#f59e0b",
+      "#22c55e",
+      "#38bdf8"
+    ],
+    "seg1": "30",
+    "seg2": "70",
+    "x": 1190,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "ui0015lab14",
+    "type": "ui_chart",
+    "name": "Histórico",
+    "group": "grp0007lab14",
+    "order": 1,
+    "width": 12,
+    "height": 5,
+    "label": "Temperatura y humedad",
+    "chartType": "line",
+    "legend": "true",
+    "xformat": "HH:mm:ss",
+    "interpolate": "linear",
+    "nodata": "Esperando datos...",
+    "dot": false,
+    "ymin": "",
+    "ymax": "",
+    "removeOlder": "10",
+    "removeOlderPoints": "120",
+    "removeOlderUnit": "60",
+    "cutout": 0,
+    "useOneColor": false,
+    "useUTC": false,
+    "colors": [
+      "#f97316",
+      "#38bdf8",
+      "#ff7f0e",
+      "#2ca02c",
+      "#98df8a",
+      "#d62728",
+      "#ff9896",
+      "#9467bd",
+      "#c5b0d5"
+    ],
+    "outputs": 1,
+    "useDifferentColor": false,
+    "x": 1190,
+    "y": 140,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "ui0016lab14",
+    "type": "ui_text",
+    "name": "LED",
+    "group": "grp0006lab14",
+    "order": 2,
+    "width": 6,
+    "height": 1,
+    "label": "LED",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "x": 1170,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "ui0017lab14",
+    "type": "ui_text",
+    "name": "Última lectura",
+    "group": "grp0006lab14",
+    "order": 3,
+    "width": 6,
+    "height": 1,
+    "label": "Última lectura",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "x": 1200,
+    "y": 220,
+    "wires": []
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "fn000blab14",
+    "type": "function",
+    "name": "Acumular auditoría",
+    "func": "\n// Acumula los últimos 50 eventos de auditoría para la tabla\nconst list = flow.get('auditList') || [];\nlist.unshift(msg.payload);\nif (list.length > 50) list.length = 50;\nflow.set('auditList', list);\nreturn { payload: list };\n",
+    "outputs": 1,
+    "libs": [],
+    "x": 960,
+    "y": 300,
+    "wires": [
+      [
+        "ui001blab14",
+        "dbg001clab14"
+      ]
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "ui001blab14",
+    "type": "ui_template",
+    "name": "Tabla de auditoría",
+    "group": "grp0008lab14",
+    "order": 1,
+    "width": 12,
+    "height": 8,
+    "format": "<style>\n.aud{width:100%;border-collapse:collapse;font-size:12px}.aud th,.aud td{padding:4px 6px;border-bottom:1px solid #444;text-align:left;vertical-align:top}\n.aud tr.alerta td{color:#f87171}.aud tr.warn td{color:#fbbf24}\n</style>\n<div style=\"max-height:360px;overflow:auto\">\n<table class=\"aud\"><thead><tr><th>Fecha</th><th>Nivel</th><th>Origen</th><th>Código</th><th>Detalle</th></tr></thead>\n<tbody><tr ng-repeat=\"a in msg.payload\" class=\"{{a.nivel}}\"><td>{{a.fecha | date:'HH:mm:ss'}}</td><td>{{a.nivel}}</td><td>{{a.origen}}</td><td>{{a.codigo}}</td><td>{{a.detalle}}</td></tr></tbody>\n</table></div>",
+    "storeOutMessages": true,
+    "fwdInMessages": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "x": 1210,
+    "y": 300,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "dbg001clab14",
+    "type": "debug",
+    "name": "auditoría",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload[0]",
+    "targetType": "msg",
+    "x": 1190,
+    "y": 340,
+    "wires": []
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "inj0012lab14",
+    "type": "inject",
+    "name": "cada 3 s",
+    "props": [],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "x": 120,
+    "y": 420,
+    "wires": [
+      [
+        "fn000elab14"
+      ]
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "fn000elab14",
+    "type": "function",
+    "name": "Estado en línea",
+    "func": "\n// Estado del dispositivo: en línea si hubo un mensaje válido en los últimos 20 s\nconst last = flow.get('lastSeen');\nconst online = last && Date.now() - last < 20000;\nconst blocked = Object.values(flow.get('blocked') || {}).some(t => t > Date.now());\nreturn { payload: (online ? '🟢 En línea' : '🔴 Fuera de línea') + (blocked ? ' · ⛔ bloqueado por abuso' : '') };\n",
+    "outputs": 1,
+    "libs": [],
+    "x": 320,
+    "y": 420,
+    "wires": [
+      [
+        "ui0018lab14"
+      ]
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "ui0018lab14",
+    "type": "ui_text",
+    "name": "Estado",
+    "group": "grp0006lab14",
+    "order": 1,
+    "width": 6,
+    "height": 1,
+    "label": "Estado",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "x": 520,
+    "y": 420,
+    "wires": []
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "ui0019lab14",
+    "type": "ui_button",
+    "name": "Encender LED",
+    "group": "grp0006lab14",
+    "order": 4,
+    "width": 3,
+    "height": 1,
+    "label": "Encender LED",
+    "color": "",
+    "bgcolor": "#16a34a",
+    "icon": "fa-lightbulb-o",
+    "payload": "on",
+    "payloadType": "str",
+    "topic": "led",
+    "topicType": "str",
+    "x": 130,
+    "y": 500,
+    "wires": [
+      [
+        "fn000clab14"
+      ]
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "ui001alab14",
+    "type": "ui_button",
+    "name": "Apagar LED",
+    "group": "grp0006lab14",
+    "order": 5,
+    "width": 3,
+    "height": 1,
+    "label": "Apagar LED",
+    "color": "",
+    "bgcolor": "#475569",
+    "icon": "fa-power-off",
+    "payload": "off",
+    "payloadType": "str",
+    "topic": "led",
+    "topicType": "str",
+    "x": 130,
+    "y": 540,
+    "wires": [
+      [
+        "fn000clab14"
+      ]
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "fn000clab14",
+    "type": "function",
+    "name": "Firmar comando (HMAC) + límite",
+    "func": "\n// ===== utilidades comunes (mismo protocolo que server/src/protocol.js) =====\nfunction keys() {\n  const m = {};\n  String(env.get('DEVICE_KEYS') || '').split(',').forEach(p => { const i = p.indexOf(':'); if (i > 0) m[p.slice(0, i).trim()] = p.slice(i + 1).trim(); });\n  return m;\n}\nconst hmac = (k, t) => crypto.createHmac('sha256', Buffer.from(k, 'utf8')).update(t, 'utf8').digest('hex');\nfunction safeEq(a, b) {\n  if (typeof a !== 'string' || !/^[0-9a-f]{64}$/i.test(a) || !/^[0-9a-f]{64}$/i.test(b)) return false;\n  return crypto.timingSafeEqual(Buffer.from(a.toLowerCase(), 'hex'), Buffer.from(b.toLowerCase(), 'hex'));\n}\nconst nowS = () => Math.floor(Date.now() / 1000);\n\n// ===== Firma de comandos LED (servidor -> ESP32) con límite de tasa =====\nconst value = msg.payload;\nconst deviceId = env.get('DEVICE_ID') || Object.keys(keys())[0];\nconst key = keys()[deviceId];\nconst audit = (nivel, codigo, detalle) => ({ payload: { fecha: new Date().toISOString(), origen: 'dashboard', nivel, codigo, deviceId, detalle } });\nif (!key) return [null, audit('alerta', 'SIN_CLAVE', 'DEVICE_KEYS no configurado')];\nif (value !== 'on' && value !== 'off') return [null, audit('warn', 'CMD_INVALIDO', String(value))];\nconst times = (flow.get('cmdTimes') || []).filter(t => Date.now() - t < 60000);\nif (times.length >= 20) return [null, audit('alerta', 'ABUSO_COMANDOS', '> 20 comandos/min')];\ntimes.push(Date.now()); flow.set('cmdTimes', times);\nconst c = { deviceId, cmdId: crypto.randomBytes(8).toString('hex'), ts: nowS(), action: 'led', value };\nc.sig = hmac(key, ['C', c.deviceId, c.cmdId, c.ts, c.action, c.value].join('|'));\nreturn [{ topic: env.get('TOPIC_BASE') + '/' + deviceId + '/cmd', payload: JSON.stringify(c), qos: 1 }, audit('info', 'CMD_ENVIADO', 'led=' + value + ' cmd=' + c.cmdId)];\n",
+    "outputs": 2,
+    "libs": [
+      {
+        "var": "crypto",
+        "module": "crypto"
+      }
+    ],
+    "x": 360,
+    "y": 520,
+    "wires": [
+      [
+        "mqo0010lab14"
+      ],
+      [
+        "fn000blab14"
+      ]
+    ],
+    "outputLabels": [
+      "cmd firmado",
+      "auditoría"
+    ]
+  },
+  {
+    "z": "tab0001lab14",
+    "id": "mqo0010lab14",
+    "type": "mqtt out",
+    "name": "cmd -> ESP32",
+    "topic": "",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "brk0002lab14",
+    "x": 600,
+    "y": 500,
+    "wires": []
+  }
+]

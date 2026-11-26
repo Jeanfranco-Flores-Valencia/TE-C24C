@@ -1,0 +1,22 @@
+[AUDIT][info] SERVIDOR_INICIADO  bd=memoria topic=test/nr
+[AUDIT][info] CMD_ENVIADO esp32-01 led=on cmd=5b9f568ec5d4e2f7 (dashboard)
+[AUDIT][info] CMD_OK esp32-01 ref=5b9f568ec5d4e2f7 led_on
+[AUDIT][info] CMD_OK esp32-01 ref=35102bdb7c0839fa led_off
+[AUDIT][warn] HMAC_INVALIDO esp32-01 la firma HMAC no coincide
+[AUDIT][alerta] REPLAY_DUPLICADO esp32-01 mensaje 91dbe312-72 ya recibido
+[AUDIT][warn] REPLAY_TS esp32-01 ts fuera de ventana (300s > 30s)
+[AUDIT][warn] FUERA_DE_RANGO esp32-01 temp=500 fuera de [-40,80]
+[AUDIT][warn] DISPOSITIVO_DESCONOCIDO intruso-99 deviceId "intruso-99" no está en la lista blanca
+[AUDIT][warn] ESQUEMA esp32-01 temp no numérica
+[AUDIT][warn] DEVICE_MISMATCH esp32-01 tópico=esp32-01 mensaje=otro
+[AUDIT][warn] PAYLOAD_GRANDE esp32-01 5000 bytes > 512
+[AUDIT][alerta] CMD_RECHAZADO esp32-01 ref=falso0001 hmac_invalido
+[AUDIT][info] REINICIO_DISPOSITIVO esp32-01 boot 91dbe312 -> deadbeef
+[AUDIT][info] REINICIO_DISPOSITIVO esp32-01 boot 91dbe312 -> deadbeef
+[AUDIT][alerta] ABUSO_RATE esp32-01 13 mensajes en 10s (máx 12); bloqueado 60s
+[AUDIT][warn] BLOQUEADO esp32-01 dispositivo bloqueado temporalmente por abuso
+[AUDIT][warn] BLOQUEADO esp32-01 dispositivo bloqueado temporalmente por abuso
+[AUDIT][warn] BLOQUEADO esp32-01 dispositivo bloqueado temporalmente por abuso
+[AUDIT][warn] BLOQUEADO esp32-01 dispositivo bloqueado temporalmente por abuso
+[AUDIT][warn] BLOQUEADO esp32-01 dispositivo bloqueado temporalmente por abuso
+[AUDIT][warn] BLOQUEADO esp32-01 dispositivo bloqueado temporalmente por abuso

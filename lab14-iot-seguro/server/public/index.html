@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab 14 · Dashboard IoT seguro</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section id="login" class="login">
+    <form id="loginForm" class="card">
+      <h1>Dashboard IoT seguro</h1>
+      <p>Ingrese el token del dashboard (variable <code>DASHBOARD_TOKEN</code> del servidor).</p>
+      <input id="token" type="password" autocomplete="current-password" placeholder="Token" required>
+      <button type="submit">Entrar</button>
+      <p id="loginErr" class="err"></p>
+    </form>
+  </section>
+
+  <main id="app" hidden>
+    <header>
+      <h1>ESP32 · DHT22 · MQTT · MongoDB Atlas</h1>
+      <div class="pills">
+        <span class="pill" id="pWs">WebSocket</span>
+        <span class="pill" id="pMqtt">MQTT</span>
+        <span class="pill" id="pDb">BD</span>
+        <span class="pill" id="pDev">Dispositivo</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card gauge-card">
+        <h2>Temperatura</h2>
+        <svg viewBox="0 0 200 120" class="gauge"><path class="g-bg" d="M20 100 A80 80 0 0 1 180 100"/><path id="gTemp" class="g-val temp" d="M20 100 A80 80 0 0 1 180 100"/></svg>
+        <div class="big"><span id="vTemp">--</span> °C</div>
+        <small>rango −40 … 80 °C</small>
+      </div>
+      <div class="card gauge-card">
+        <h2>Humedad</h2>
+        <svg viewBox="0 0 200 120" class="gauge"><path class="g-bg" d="M20 100 A80 80 0 0 1 180 100"/><path id="gHum" class="g-val hum" d="M20 100 A80 80 0 0 1 180 100"/></svg>
+        <div class="big"><span id="vHum">--</span> %</div>
+        <small>rango 0 … 100 %</small>
+      </div>
+      <div class="card">
+        <h2>Estado y control</h2>
+        <label>Dispositivo <select id="devSel"></select></label>
+        <dl class="kv">
+          <dt>Conexión</dt><dd id="sOnline">--</dd>
+          <dt>LED</dt><dd><span id="sLed" class="led"></span> <span id="sLedTxt">--</span></dd>
+          <dt>Última lectura</dt><dd id="sLast">--</dd>
+          <dt>Firma HMAC</dt><dd id="sSig">--</dd>
+          <dt>Bloqueado</dt><dd id="sBlk">--</dd>
+        </dl>
+        <div class="btns">
+          <button id="bOn" class="on">Encender LED</button>
+          <button id="bOff" class="off">Apagar LED</button>
+        </div>
+        <p id="cmdMsg" class="muted"></p>
+      </div>
+      <div class="card wide">
+        <h2>Histórico (últimas 60 lecturas)</h2>
+        <div class="chart"><canvas id="chart"></canvas></div>
+      </div>
+      <div class="card wide">
+        <h2>Auditoría <small>(eventos de seguridad, comandos y mensajes rechazados)</small></h2>
+        <div class="tbl"><table>
+          <thead><tr><th>Fecha</th><th>Nivel</th><th>Origen</th><th>Código</th><th>Dispositivo</th><th>Detalle</th></tr></thead>
+          <tbody id="audit"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </main>
+  <script src="vendor/chart.umd.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

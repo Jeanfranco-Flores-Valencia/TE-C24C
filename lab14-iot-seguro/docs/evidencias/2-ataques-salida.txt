@@ -1,0 +1,13 @@
+Conectado a mqtt://127.0.0.1:18830. Objetivo: test/nr/esp32-01
+
+• firma        Telemetría con firma falsa -> esperado HMAC_INVALIDO
+• replay       Mensaje legítimo capturado y re-publicado -> esperado REPLAY_DUPLICADO
+• viejo        Mensaje firmado con ts de hace 300 s -> esperado REPLAY_TS
+• rango        temp=500 °C firmada -> esperado FUERA_DE_RANGO
+• desconocido  Dispositivo no registrado -> esperado DISPOSITIVO_DESCONOCIDO
+• esquema      temp como texto -> esperado ESQUEMA
+• mismatch     deviceId del mensaje distinto al del tópico -> esperado DEVICE_MISMATCH
+• grande       Payload de 5000 bytes -> esperado PAYLOAD_GRANDE
+• cmd-falso    Comando LED con firma falsa al ESP32 -> esperado CMD_RECHAZADO hmac_invalido (auditoría del dispositivo)
+
+Revise la tabla de Auditoría del dashboard.

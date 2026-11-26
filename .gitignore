@@ -1,0 +1,11 @@
+# Secretos (NUNCA subir)
+.env
+**/server/.env
+**/firmware/include/secrets.h
+# Dependencias y compilados
+node_modules/
+**/firmware/.pio/
+.vscode/
+*.log
+**/firmware/test_host/harness
+!**/docs/evidencias/*.log
